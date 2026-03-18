@@ -531,4 +531,191 @@
                   <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="divide-y divide-slate-100">
                       {getActiveDeckCards().slice().reverse().map(card => (
-                        <div key={card.id} className="p-4 sm:p-5 hover:bg-slate
+                        <div key={card.id} className="p-4 sm:p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                          <div className="flex-1 pr-4">
+                            <div className="flex items-baseline gap-3 mb-1">
+                              <h3 className="text-lg font-extrabold text-slate-900">{card.word}</h3>
+                              <button onClick={() => playAudio(card.word)} className="text-slate-400 hover:text-blue-600 transition-colors" title="聆聽發音"><i className="fa-solid fa-volume-high"></i></button>
+                            </div>
+                            <p className="text-sm font-medium text-blue-700 mb-1">{card.definition}</p>
+                            <p className="text-xs text-slate-500 italic truncate w-full max-w-md sm:max-w-lg">"{card.context}"</p>
+                          </div>
+                          <button onClick={() => handleDeleteCard(card.id)} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"><i className="fa-solid fa-trash"></i></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- View: Input Area --- */}
+            {view === 'input' && (
+              <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+                <button onClick={() => setView('deck_dashboard')} className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-slate-800 self-start transition-colors"><i className="fa-solid fa-arrow-left"></i> 返回 {activeDeckName}</button>
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex flex-col gap-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2"><i className="fa-solid fa-pen-to-square text-indigo-500"></i> 新增至「{activeDeckName}」：</label>
+                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                    <button onClick={() => fileInputRef.current?.click()} className="text-xs flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 px-3 rounded-lg font-bold transition-colors"><i className="fa-solid fa-image"></i> 圖片辨識</button>
+                  </div>
+                  <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="貼上你的文章段落，讓 AI 考官幫你掃描裡面的生字！" className="w-full h-40 p-4 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none text-slate-700 leading-relaxed bg-slate-50" />
+                  
+                  {/* ✨ 錯誤訊息會清楚顯示在這裡 ✨ */}
+                  {error && <p className="text-red-500 text-sm font-bold bg-red-50 p-4 border border-red-200 rounded-lg">{error}</p>}
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                    <button onClick={() => handleAnalyzeText('all')} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 border border-slate-300 shadow-sm"><i className="fa-solid fa-list-check"></i> ⚡ 萃取所有生字 (全包)</button>
+                    <button onClick={() => handleAnalyzeText('advanced')} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md"><i className="fa-solid fa-brain"></i> 🎯 僅萃取 C1/C2 高級詞彙</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- View: Loading --- */}
+            {view === 'loading' && (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 animate-in fade-in">
+                <i className="fa-solid fa-rotate animate-spin text-blue-600 text-5xl mb-6"></i>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">AI 考官正在幫你抓單字...</h2>
+                <p className="text-slate-500 font-medium">請稍候，馬上為您產生專屬字卡</p>
+              </div>
+            )}
+
+            {/* --- View: All Caught Up --- */}
+            {view === 'all_caught_up' && (
+              <div className="flex-1 flex flex-col gap-6 animate-in zoom-in-95 justify-center items-center py-10">
+                <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-4 border-4 border-green-100">
+                  <i className="fa-solid fa-circle-check text-green-500 text-5xl"></i>
+                </div>
+                <h2 className="text-3xl font-extrabold text-slate-800 mb-2">今日任務完成！</h2>
+                <p className="text-slate-500 text-center max-w-sm mb-8 leading-relaxed font-medium">這個牌組該複習的單字都看過一遍了！這就是演算法的魔力。<br/>你可以休息一下，或是去新增生字。</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setView('deck_dashboard')} className="py-3 px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors">返回 {activeDeckName}</button>
+                  <button onClick={() => setView('input')} className="py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-md"><i className="fa-solid fa-plus mr-1"></i> 學新單字</button>
+                </div>
+              </div>
+            )}
+
+            {/* --- View: Review (SRS Engine) --- */}
+            {view === 'review' && reviewQueue.length > 0 && (
+              <div className="flex flex-col items-center w-full animate-in slide-in-from-bottom-4 duration-500">
+                <div className="w-full flex items-center justify-between mb-4 px-2">
+                  <span className="text-xs font-bold text-slate-400">Card {currentQueueIndex + 1} of {reviewQueue.length}</span>
+                  <div className="h-2 flex-1 mx-4 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${((currentQueueIndex + 1) / reviewQueue.length) * 100}%` }}></div>
+                  </div>
+                </div>
+                <div className={`w-full min-h-[400px] bg-white rounded-3xl shadow-xl border border-slate-100 p-8 flex flex-col justify-center items-center cursor-pointer transition-all duration-500 transform ${isFlipped ? 'scale-[1.02] shadow-2xl border-blue-200' : 'hover:scale-[1.01]'}`} onClick={() => !isFlipped && setIsFlipped(true)}>
+                  {!isFlipped ? (
+                    <div className="text-center flex flex-col items-center gap-6 w-full animate-in fade-in">
+                      <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1"><i className="fa-solid fa-brain"></i> Focus Word</span>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">{reviewQueue[currentQueueIndex].word}</h2>
+                        <button onClick={(e) => { e.stopPropagation(); playAudio(reviewQueue[currentQueueIndex].word); }} className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all" title="聆聽發音"><i className="fa-solid fa-volume-high text-xl"></i></button>
+                      </div>
+                      <div className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-100 mt-2 text-left">
+                        <p className="text-xs text-slate-400 mb-2 font-bold uppercase tracking-wider">來源語境 (Context)</p>
+                        <p className="text-slate-700 italic text-lg leading-relaxed">"{reviewQueue[currentQueueIndex].context}"</p>
+                      </div>
+                      <p className="text-sm text-slate-400 mt-4 flex items-center gap-2 animate-pulse"><i className="fa-solid fa-rotate"></i> 點擊翻開看解析</p>
+                    </div>
+                  ) : (
+                    <div className="text-left flex flex-col gap-6 w-full animate-in fade-in">
+                      <div className="border-b border-slate-100 pb-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h2 className="text-3xl font-extrabold text-slate-900">{reviewQueue[currentQueueIndex].word}</h2>
+                          <button onClick={(e) => { e.stopPropagation(); playAudio(reviewQueue[currentQueueIndex].word); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"><i className="fa-solid fa-volume-high text-xl"></i></button>
+                        </div>
+                        <p className="text-blue-700 font-bold text-xl">{reviewQueue[currentQueueIndex].definition}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><i className="fa-solid fa-award"></i> 雅思 Band 8+ 例句</p>
+                        <p className="text-slate-800 leading-relaxed font-medium bg-blue-50 p-5 rounded-2xl border border-blue-100 text-lg">{reviewQueue[currentQueueIndex].example}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {isFlipped && (
+                  <div className="flex gap-3 w-full mt-8 animate-in slide-in-from-bottom-2">
+                    <button onClick={(e) => { e.stopPropagation(); handleNextCard('hard'); }} className="flex-1 py-4 bg-red-50 text-red-700 hover:bg-red-100 font-bold rounded-2xl transition-all border border-red-100 shadow-sm hover:shadow">
+                      <span className="block text-lg">忘記了</span><span className="block text-xs opacity-70 mt-1">1分鐘後重考</span>
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleNextCard('good'); }} className="flex-1 py-4 bg-green-50 text-green-700 hover:bg-green-100 font-bold rounded-2xl transition-all border border-green-100 shadow-sm hover:shadow">
+                      <span className="block text-lg">記得了</span><span className="block text-xs opacity-70 mt-1">{reviewQueue[currentQueueIndex].interval === 0 ? '1天後' : `${Math.round(reviewQueue[currentQueueIndex].interval * reviewQueue[currentQueueIndex].easeFactor)}天後`}</span>
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleNextCard('easy'); }} className="flex-1 py-4 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-2xl transition-all border border-blue-100 shadow-sm hover:shadow">
+                      <span className="block text-lg">太簡單</span><span className="block text-xs opacity-70 mt-1">{reviewQueue[currentQueueIndex].interval === 0 ? '4天後' : `${Math.round(reviewQueue[currentQueueIndex].interval * reviewQueue[currentQueueIndex].easeFactor * 1.3)}天後`}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- View: Finished Session --- */}
+            {view === 'empty' && (
+              <div className="flex-1 flex flex-col gap-6 animate-in zoom-in-95 py-10">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center justify-center p-10 text-center">
+                  <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6"><i className="fa-solid fa-circle-check text-green-600 text-4xl"></i></div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">本輪複習完成！</h2>
+                  <p className="text-slate-500 mb-8 max-w-sm font-medium">記憶正在被科學地鞏固。點擊返回繼續學習，或是立刻進行一場克漏字魔鬼特訓來驗收成果！</p>
+                  <button onClick={() => setView('deck_dashboard')} className="w-full max-w-sm py-4 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors shadow-md">返回 {activeDeckName} 儀表板</button>
+                </div>
+                {getActiveDeckCards().length >= 3 && (
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-3xl shadow-sm border border-amber-100 p-8 text-center mt-4">
+                    <h3 className="text-lg font-bold text-amber-900 mb-2 flex items-center justify-center gap-2"><i className="fa-solid fa-wand-magic-sparkles text-amber-500"></i> 魔鬼特訓：語境驗收</h3>
+                    <button onClick={handleGenerateQuiz} className="w-full max-w-md mx-auto py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 hover:shadow-lg mt-4">✨ 進行 AI 隨堂克漏字測驗</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- View: Quiz --- */}
+            {view === 'quiz_loading' && (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 animate-in fade-in">
+                <i className="fa-solid fa-file-lines animate-bounce text-amber-500 text-5xl mb-4"></i>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">考官正在為你量身出題...</h2>
+              </div>
+            )}
+
+            {view === 'quiz' && quizData && (
+              <div className="flex-1 flex flex-col gap-6 animate-in slide-in-from-bottom-4">
+                <div className="bg-white rounded-3xl shadow-md border border-amber-200 p-6 md:p-8 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-2 bg-amber-400"></div>
+                  <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><i className="fa-solid fa-file-lines text-amber-500"></i> 實戰語境填空測驗</h2>
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-6">
+                    <p className="text-slate-800 leading-loose text-lg font-medium whitespace-pre-line">{quizData.passage}</p>
+                  </div>
+                  {!showQuizAnswers ? (
+                    <button onClick={() => setShowQuizAnswers(true)} className="w-full py-4 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold rounded-xl transition-colors flex items-center justify-center gap-2 border border-amber-300"><i className="fa-solid fa-eye"></i> ✨ 看解答與翻譯</button>
+                  ) : (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                      <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200 mb-6">
+                        <h3 className="font-bold text-amber-900 mb-4 text-sm uppercase tracking-wider">正確解答</h3>
+                        <div className="flex flex-wrap gap-3">
+                          {quizData.answers.map((ans, idx) => (
+                            <div key={idx} className="bg-white px-4 py-2 rounded-lg border border-amber-200 shadow-sm flex items-center gap-2">
+                              <span className="bg-amber-100 text-amber-800 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full">{idx + 1}</span>
+                              <span className="font-bold text-slate-800">{ans}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-6 text-sm text-slate-600 leading-relaxed">
+                        <span className="font-bold text-slate-800 block mb-2">中文翻譯：</span>{quizData.translation}
+                      </div>
+                      <button onClick={() => setView('deck_dashboard')} className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-md">返回儀表板 <i className="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
