@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IELTS 智能字卡生成器</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function App() {
+      // --- Core State ---
+      const [decks, setDecks] = useState([{ id: 'default', name: '預設牌組', createdAt: Date.now() }]);
+      const [activeDeckId, setActiveDeckId] = useState('default');
+      const [newDeckName, setNewDeckName] = useState('');
+      const [cards, setCards] = useState([]);
+      const [view, setView] = useState('home');
+
+      // --- SRS & Review State ---
+      const [reviewQueue, setReviewQueue] = useState([]);
+      const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+      const [isFlipped, setIsFlipped] = useState(false);
+      
+      // --- AI Features State ---
+      const [error, setError] = useState('');
+      const [quizData, setQuizData] = useState(null);
+      const [showQuizAnswers, setShowQuizAnswers] = useState(false);
+      const [inputText, setInputText] = useState('');
+
+      const [availableVoices, setAvailableVoices] = useState([]);
+      const fileInputRef = useRef(null);
+      const importInputRef = useRef(null);
+      
+      // ⚠️ 請在這裡填入你的 Gemini API Key
+      const apiKey = "AIzaSyDZ2ATFNrSiDXkOTKwpIv8JA8EZoSfyVT8"; 
+
+      // --- Initialization ---
+      useEffect(() => {
+        const loadVoices = () => setAvailableVoices(window.speechSynthesis.getVoices());
+        if ('speechSynthesis' in window) {
+          loadVoices();
+          window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+      }, []);
+
+      useEffect(() => {
+        const savedDecks = localStorage.getItem('ielts_decks');
+        if (savedDecks) {
+          try { setDecks(JSON.parse(savedDecks)); } catch (e) { console.error('Failed to load decks', e); }
+        }
+        
+        const savedCards = localStorage.getItem('ielts_flashcards');
+        if (savedCards) {
+          try {
+            const parsed = JSON.parse(savedCards);
+            const migrated = parsed.map(c => c.deckId ? c : { ...c, deckId: 'default' });
+            setCards(migrated);
+          } catch (e) { console.error('Failed to load cards', e); }
+        }
+      }, []);
+
+      // --- Auto Save ---
+      useEffect(() => { localStorage.setItem('ielts_decks', JSON.stringify(decks)); }, [decks]);
+      useEffect(() => { localStorage.setItem('ielts_flashcards', JSON.stringify(cards)); }, [cards]);
+
+      // --- 🆕 匯出與匯入功能 (Backup Features) ---
+      const handleExportData = () => {
+        const dataToExport = { decks, cards };
+        const dataStr = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Flashcards_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      };
+
+      const handleImportData = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const importedData = JSON.parse(event.target.result);
+            if (importedData.decks && importedData.cards) {
+              if (window.confirm("匯入資料將會與現有資料合併，確定要繼續嗎？")) {
+                // 簡單合併邏輯：避免 ID 重複覆蓋
+                setDecks(prev => {
+                  const newDecks = importedData.decks.filter(d => !prev.some(pd => pd.id === d.id));
+                  return [...prev, ...newDecks];
+                });
+                setCards(prev => {
+                  const newCards = importedData.cards.filter(c => !prev.some(pc => pc.id === c.id));
+                  return [...prev, ...newCards];
+                });
+                alert("資料匯入成功！");
+              }
+            } else {
+              alert("檔案格式不正確，請確保是之前匯出的備份檔。");
+            }
+          } catch (err) {
+            alert("讀取檔案失敗：" + err.message);
+          }
+        };
+        reader.readAsText(file);
+        // 清空 input 讓同一個檔案可以重複選取
+        if(importInputRef.current) importInputRef.current.value = "";
+      };
+
+      // --- Helpers ---
+      const getActiveDeckCards = () => cards.filter(c => c.deckId === activeDeckId);
+      const getDeckCards = (deckId) => cards.filter(c => c.deckId === deckId);
+      const getDueCardsCount = (deckId) => {
+        const now = Date.now();
+        return cards.filter(c => c.deckId === deckId && (!c.dueDate || c.dueDate <= now)).length;
+      };
+
+      const handleCreateDeck = (e) => {
+        e.preventDefault();
+        if (!newDeckName.trim()) return;
+        const newDeck = { id: crypto.randomUUID(), name: newDeckName.trim(), createdAt: Date.now() };
+        setDecks([...decks, newDeck]);
+        setNewDeckName('');
+      };
+
+      const handleDeleteDeck = (e, deckId) => {
+        e.stopPropagation();
+        if (window.confirm("確定要刪除這個牌組與裡面所有的單字卡嗎？這個動作無法復原。")) {
+          setDecks(decks.filter(d => d.id !== deckId));
+          setCards(cards.filter(c => c.deckId !== deckId));
+          if (activeDeckId === deckId) {
+            setView('home');
+            setActiveDeckId('default');
+          }
+        }
+      };
+
+      const handleDeleteCard = (cardId) => {
+        if (window.confirm("確定要刪除這個單字嗎？")) {
+          setCards(cards.filter(c => c.id !== cardId));
+        }
+      };
+
+      // --- SRS Review Session ---
+      const startReviewSession = () => {
+        const now = Date.now();
+        const activeCards = getActiveDeckCards();
+        const due = activeCards.filter(c => !c.dueDate || c.dueDate <= now);
+        
+        if (due.length === 0 && activeCards.length > 0) {
+          setView('all_caught_up');
+          return;
+        }
+        
+        setReviewQueue(due);
+        setCurrentQueueIndex(0);
+        setIsFlipped(false);
+        setView('review');
+      };
+
+      // --- Audio ---
+      const playAudio = (text) => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'en-GB';
+          utterance.rate = 0.9;
+          const englishVoice = availableVoices.find(v => v.lang === 'en-GB' && v.name.includes('Google')) ||
+                               availableVoices.find(v => v.lang === 'en-GB') ||
+                               availableVoices.find(v => v.lang.startsWith('en'));
+          if (englishVoice) utterance.voice = englishVoice;
+          window.speechSynthesis.speak(utterance);
+        } else {
+          alert("您的瀏覽器不支援語音播放。");
+        }
+      };
+
+      // --- API Base ---
+      const callGeminiAPI = async (payload) => {
+        let response;
+        let retries = 3;
+        let delay = 1000;
+        while (retries > 0) {
